@@ -573,31 +573,6 @@ const getAudiobooksByAuthor = asyncHandler(async (req, res, next) => {
   }
 });
 
-// const getAuthorBooks = async (req, res) => {
-//   try {
-//     const authorId = req.params.id; // Get the author ID from the URL parameter
-//     const books = await Audiobook.find({ authorId: authorId });
-
-//     console.log("getAuthorBooks Raw data:", books);
-//     if (!books) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "No audiobooks found",
-//       });
-//     }
-
-//     res.status(200).json({
-//       success: true,
-//       data: books,
-//     }); // Return an empty array, not a 404
-//   } catch (error) {
-//     console.error("Error in getAuthorBooks:", error);
-//     res.status(500).json({
-//       success: false,
-//       message: "Internal server error",
-//     });
-//   }
-// };
 const getAuthorBooks = async (req, res) => {
   try {
     const authorId = req.params.id; // Get the author ID from the URL parameter
