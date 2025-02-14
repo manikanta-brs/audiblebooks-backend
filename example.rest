@@ -1,0 +1,8 @@
+POST https://storytime-backend-thz3.onrender.com/api/users/login
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NzdiYmEwYjBhYjg0OGNjZmNhNzNkYWIiLCJlbWFpbCI6ImRvbmdhbGE1NjVAZ21haWwuY29tIiwiaWF0IjoxNzM2MTYxODI3LCJleHAiOjE3Mzg3NTM4Mjd9.3dvi5WaI6BlMcnMSbgXQl3qPU8nwndtLGbSMknb-M3c
+
+{
+    "email": "manikantadon675@gmail.com",
+    "password": "maniakntadon@123"
+}

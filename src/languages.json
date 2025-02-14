@@ -1,0 +1,66 @@
+[
+  {
+    "_id": {
+      "$oid": "663c6cce6167b79746bbb56e"
+    },
+    "name": "Tamil",
+    "code": "ta",
+    "status": true,
+    "__v": 0,
+    "created_at": {
+      "$date": "2024-05-09T06:27:26.888Z"
+    },
+    "updated_at": {
+      "$date": "2024-05-09T06:27:26.888Z"
+    },
+    "languageId": "lang_101"
+  },
+  {
+    "_id": {
+      "$oid": "663c6cce6167b79746bbb56f"
+    },
+    "name": "English",
+    "code": "en en-US en-AU en-GB",
+    "status": true,
+    "__v": 0,
+    "created_at": {
+      "$date": "2024-05-09T06:27:26.890Z"
+    },
+    "updated_at": {
+      "$date": "2024-05-09T06:27:26.890Z"
+    },
+    "languageId": "lang_102"
+  },
+  {
+    "_id": {
+      "$oid": "663c6cce6167b79746bbb570"
+    },
+    "name": "Telugu",
+    "code": "te",
+    "status": true,
+    "__v": 0,
+    "created_at": {
+      "$date": "2024-05-09T06:27:26.891Z"
+    },
+    "updated_at": {
+      "$date": "2024-05-09T06:27:26.891Z"
+    },
+    "languageId": "lang_103"
+  },
+  {
+    "_id": {
+      "$oid": "663c6cce6167b79746bbb571"
+    },
+    "name": "Hindi",
+    "code": "hi",
+    "status": true,
+    "__v": 0,
+    "created_at": {
+      "$date": "2024-05-09T06:27:26.892Z"
+    },
+    "updated_at": {
+      "$date": "2024-05-09T06:27:26.892Z"
+    },
+    "languageId": "lang_104"
+  }
+]

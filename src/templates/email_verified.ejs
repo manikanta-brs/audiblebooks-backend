@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Email Verification Status</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+        margin: 0;
+        padding: 20px;
+        background-color: #f4f4f4;
+      }
+      .container {
+        max-width: 600px;
+        margin: 40px auto;
+        padding: 20px;
+        background-color: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        text-align: center;
+      }
+      .icon {
+        font-size: 48px;
+        margin-bottom: 20px;
+      }
+      .success {
+        color: #28a745;
+      }
+      .error {
+        color: #dc3545;
+      }
+      h1 {
+        color: #333333;
+        margin-bottom: 20px;
+      }
+      p {
+        color: #666666;
+        margin-bottom: 20px;
+      }
+      .button {
+        display: inline-block;
+        padding: 10px 20px;
+        background-color: #007bff;
+        color: #ffffff;
+        text-decoration: none;
+        border-radius: 4px;
+        transition: background-color 0.3s;
+      }
+      .button:hover {
+        background-color: #0056b3;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="icon <%= success ? 'success' : 'error' %>">
+        <%= success ? '✓' : '✕' %>
+      </div>
+      <h1>
+        <%= success ? 'Email Verified Successfully!' : 'Verification Failed' %>
+      </h1>
+      <p><%= message %></p>
+      <a href="http://localhost:4000" class="button">Go to Login</a>
+    </div>
+  </body>
+</html>

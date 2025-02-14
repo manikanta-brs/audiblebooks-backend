@@ -1,0 +1,21 @@
+[
+  { "_id": 1, "name": "Fiction", "keywords": "fiction" },
+  { "_id": 2, "name": "Sci-Fi & Fantasy", "keywords": "sci-fi-fantasy" },
+  {
+    "_id": 3,
+    "name": "Mysteries & Thrillers",
+    "keywords": "mysteries-thrillers"
+  },
+  { "_id": 4, "name": "Self-Development", "keywords": "self-development" },
+  {
+    "_id": 5,
+    "name": "Biographies & Memoirs",
+    "keywords": "biographies-memoirs"
+  },
+  {
+    "_id": 6,
+    "name": "Children's Audiobooks",
+    "keywords": "childrens-audiobooks"
+  },
+  { "_id": 7, "name": "All Categories", "keywords": "all-categories" }
+]
