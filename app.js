@@ -104,7 +104,6 @@
 // app.listen(port, () => {
 //   console.log(`Server is running on port http://localhost:${port}`);
 // });
-
 import express from "express";
 import dotenv from "dotenv";
 import connectDB from "./src/config/db.js";
@@ -132,12 +131,30 @@ await connectDB();
 const app = express();
 
 // Middleware
-app.use(
-  cors({
-    origin:
-      process.env.NODE_ENV === "production" ? "http://localhost:4000" : "*", // Restrict origins in production
-  })
-);
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = [
+      "http://localhost:4000", // Development frontend
+      "http://localhost:5173", // Vite's default development port
+      "https://audiblebooks-frontend.onrender.com", // Production frontend
+    ];
+
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg =
+        "The CORS policy for this site does not allow access from the specified Origin.";
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+  credentials: true, // Allow cookies and authorization headers
+  optionsSuccessStatus: 204, // Some legacy browsers choke on 204
+};
+
+app.use(cors(corsOptions));
 app.use(useragent.express());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
