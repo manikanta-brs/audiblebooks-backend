@@ -13,19 +13,59 @@ const db = mongoose.connection.db;
 
 const uploadAudiobook = asyncHandler(async (req, res, next) => {
   try {
-    // Extract from request
-    const { title, description, category } = req.body; // Access text fields
+    // Extract from request, destructure `subcategories` into `subcategoriesString`
+    const {
+      title,
+      description,
+      categories: categoriesString,
+      subcategories: subcategoriesString,
+    } = req.body;
 
-    // Validate the text inputs
-    if (!title || !description || !category) {
+    // Validate required fields
+    if (!title || !description || !categoriesString) {
+      return res.status(400).json({
+        error: "Please provide title, description, and at least one category.",
+      });
+    }
+    let categoriesList = [];
+    if (categoriesString) {
+      try {
+        categoriesList = JSON.parse(categoriesString);
+        if (!Array.isArray(categoriesList)) {
+          return res
+            .status(400)
+            .json({ error: "categoriesList must be an array." });
+        }
+      } catch (parseError) {
+        return res
+          .status(400)
+          .json({ error: "Invalid categories format.  Must be a JSON array." });
+      }
+    }
+    // Now you can validate that categoriesList has at least one element
+    if (categoriesList.length === 0) {
       return res
         .status(400)
-        .json({ error: "Please provide title, description, and category." });
+        .json({ error: "Please provide at least one category." });
     }
-
+    let subcategoryList = [];
+    if (subcategoriesString) {
+      try {
+        subcategoryList = JSON.parse(subcategoriesString);
+        if (!Array.isArray(subcategoryList)) {
+          return res
+            .status(400)
+            .json({ error: "Subcategories must be an array." });
+        }
+      } catch (parseError) {
+        return res.status(400).json({
+          error: "Invalid subcategories format.  Must be a JSON array.",
+        });
+      }
+    }
     // Access the files
-    const audiobookFile = req.files["audiobook"][0];
-    const imageFile = req.files["image"][0];
+    const audiobookFile = req.files?.audiobook?.[0];
+    const imageFile = req.files?.image?.[0];
 
     if (!audiobookFile || !audiobookFile.originalname) {
       return res
@@ -42,18 +82,13 @@ const uploadAudiobook = asyncHandler(async (req, res, next) => {
     // Get GridFSBucket instance
     let gridfsBucket = getGridFSBucket();
 
-    // let audioFileId;
     // Upload audiobook and image concurrently
     const uploadAudioPromise = new Promise((resolve, reject) => {
       const audioUploadStream = gridfsBucket.openUploadStream(
         audiobookFile.originalname,
         { contentType: audiobookFile.mimetype }
       );
-
-      audioUploadStream.on("finish", async () => {
-        // audioFileId = audioUploadStream.id;
-        resolve();
-      });
+      audioUploadStream.on("finish", resolve);
       audioUploadStream.on("error", reject);
       audioUploadStream.end(audiobookFile.buffer);
     });
@@ -69,20 +104,22 @@ const uploadAudiobook = asyncHandler(async (req, res, next) => {
     });
 
     await Promise.all([uploadAudioPromise, uploadImagePromise]);
-    // console.log("Audiobook File Name:", audiobookFile.originalname);
+
     // Save metadata in the Audiobook collection
     const newAudiobook = new Audiobook({
-      authorId: req.author.id,
-      authorName: req.author.first_name,
-      title: title, // Use the title from reqx.body
+      authorId: req.author.id, //This needs to be available
+      authorName: req.author.first_name, //This needs to be available
+      title,
       coverImage: imageFile.originalname,
-      audioFile: audiobookFile.originalname || "None", // Store the filename!
+      audioFile: audiobookFile.originalname,
       uploadedAt: new Date(),
-      description: description, // Use the description from req.body
-      category: category, // Use the category from req.body
-      genre: "Add genre here", // Optional
+      description,
+      categories: categoriesList, // Use the parsed list, it has to be an array.
+      subcategories: subcategoryList, // Use the parsed list, it has to be an array.
+      genre: "Add genre here",
     });
-    console.log("New Audiobook Object:", newAudiobook);
+
+    // console.log("New Audiobook Object:", newAudiobook);
     await newAudiobook.save();
 
     res.status(201).json({
@@ -107,6 +144,21 @@ const getCategories = async (req, res) => {
       .json({ message: "Failed to fetch categories", error: error.message });
   }
 };
+const getSubcategories = asyncHandler(async (req, res) => {
+  const { category } = req.body.category;
+
+  try {
+    const categoryData = await Category.findOne({ category });
+
+    if (!categoryData) {
+      return res.status(404).json({ message: "Category not found" });
+    }
+
+    res.json(categoryData.subcategories);
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
 
 const getAudiobooks = asyncHandler(async (req, res) => {
   try {
@@ -122,7 +174,7 @@ const getAudiobooks = asyncHandler(async (req, res) => {
     }
 
     const audiobooks = await Audiobook.find(query);
-    console.log("Raw audiobooks data:", audiobooks);
+    // console.log("Raw audiobooks data:", audiobooks);
 
     if (!audiobooks.length) {
       return res.status(404).json({
@@ -133,7 +185,7 @@ const getAudiobooks = asyncHandler(async (req, res) => {
 
     const formattedBooks = await Promise.all(
       audiobooks.map(async (book) => {
-        console.log("Audiobook before formatting:", book);
+        // console.log("Audiobook before formatting:", book);
         let base64Image = null;
         let base64Audio = null; // Change variable name to base64Audio
 
@@ -184,6 +236,7 @@ const getAudiobooks = asyncHandler(async (req, res) => {
         return {
           id: book._id,
           author: book.authorId,
+          description: book.description,
           coverImageData: base64Image,
           audioBase64Data: base64Audio, // Use base64Audio here
           title: book.title,
@@ -212,7 +265,7 @@ const getAudioFile = asyncHandler(async (req, res) => {
   try {
     const filename = req.params.filename;
     const gridfsBucket = getGridFSBucket();
-    console.log("filename", filename);
+    // console.log("filename", filename);
     const downloadStream = gridfsBucket.openDownloadStreamByName(filename);
 
     const chunks = []; // Array to store chunks of audio data
@@ -280,7 +333,7 @@ const deleteAudiobook = asyncHandler(async (req, res, next) => {
       return res.status(404).json({ error: "Audiobook not found" });
     }
 
-    console.log("Audiobook title:", audiobook.title); // Log the audiobook title
+    // console.log("Audiobook title:", audiobook.title); // Log the audiobook title
 
     // Check if the authenticated author matches the audiobook's author
     const token = req.headers.authorization.split(" ")[1]; // Assuming JWT token is passed
@@ -309,7 +362,7 @@ const deleteAudiobook = asyncHandler(async (req, res, next) => {
 
       if (coverImageFile.length > 0) {
         await gridfsBucket.delete(coverImageFile[0]._id);
-        console.log("Cover image file deleted from GridFS");
+        // console.log("Cover image file deleted from GridFS");
       }
 
       // Delete audio file
@@ -319,7 +372,7 @@ const deleteAudiobook = asyncHandler(async (req, res, next) => {
 
       if (audioFile.length > 0) {
         await gridfsBucket.delete(audioFile[0]._id);
-        console.log("Audio file deleted from GridFS");
+        // console.log("Audio file deleted from GridFS");
       }
     } catch (gridFsError) {
       console.error("Error deleting files from GridFS:", gridFsError);
@@ -338,9 +391,9 @@ const deleteAudiobook = asyncHandler(async (req, res, next) => {
 
 const updateAudiobook = asyncHandler(async (req, res, next) => {
   try {
-    console.log("req.files", req.files);
+    // console.log("req.files", req.files);
 
-    console.log("Received audiobook ID for update:", req.params.id);
+    // console.log("Received audiobook ID for update:", req.params.id);
 
     // Validate ID format
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -356,7 +409,7 @@ const updateAudiobook = asyncHandler(async (req, res, next) => {
       return res.status(404).json({ error: "Audiobook not found" });
     }
 
-    console.log("Found audiobook for update:", audiobook);
+    // console.log("Found audiobook for update:", audiobook);
 
     // Ensure the author is authenticated
     if (!req.author) {
@@ -382,7 +435,7 @@ const updateAudiobook = asyncHandler(async (req, res, next) => {
     let gridfsBucket = getGridFSBucket();
 
     //Check this to check the images logs
-    console.log("req.files:", req.files);
+    // console.log("req.files:", req.files);
     // Handle file uploads if provided
     if (req.files) {
       if (req.files["image"]) {
@@ -395,7 +448,7 @@ const updateAudiobook = asyncHandler(async (req, res, next) => {
             .toArray();
           if (oldImageFile.length > 0) {
             await gridfsBucket.delete(oldImageFile[0]._id);
-            console.log("Deleted old cover image:", audiobook.coverImage);
+            // console.log("Deleted old cover image:", audiobook.coverImage);
           }
         } catch (gridFsError) {
           console.error(
@@ -430,7 +483,7 @@ const updateAudiobook = asyncHandler(async (req, res, next) => {
             .toArray();
           if (oldAudioFile.length > 0) {
             await gridfsBucket.delete(oldAudioFile[0]._id);
-            console.log("Deleted old audiobook file:", audiobook.audioFile);
+            // console.log("Deleted old audiobook file:", audiobook.audioFile);
           }
         } catch (gridFsError) {
           console.error(
@@ -460,7 +513,7 @@ const updateAudiobook = asyncHandler(async (req, res, next) => {
     audiobook = await Audiobook.findByIdAndUpdate(audiobookId, updateData, {
       new: true,
     });
-    console.log("Updated audiobook:", audiobook);
+    // console.log("Updated audiobook:", audiobook);
 
     res.status(200).json({
       message: "Audiobook updated successfully",
@@ -474,7 +527,7 @@ const updateAudiobook = asyncHandler(async (req, res, next) => {
 
 const getAudiobookById = asyncHandler(async (req, res, next) => {
   try {
-    console.log("Received request for audiobook ID:", req.params.id);
+    // console.log("Received request for audiobook ID:", req.params.id);
 
     // Validate the ID format
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -490,14 +543,14 @@ const getAudiobookById = asyncHandler(async (req, res, next) => {
       return res.status(404).json({ error: "Audiobook not found" });
     }
 
-    console.log("Found audiobook:", audiobook);
+    // console.log("Found audiobook:", audiobook);
 
     // Ensure the author is authenticated
     if (!req.author) {
       return res.status(401).json({ error: "Unauthorized, author not found" });
     }
 
-    console.log("Requesting author:", req.author);
+    // console.log("Requesting author:", req.author);
 
     // Check if the authorId matches (optional, depending on use case)
     if (audiobook.authorId.toString() !== req.author._id.toString()) {
@@ -518,11 +571,11 @@ const getAudiobookById = asyncHandler(async (req, res, next) => {
 });
 const getAudiobooksByAuthor = asyncHandler(async (req, res, next) => {
   try {
-    console.log("Received request for audiobooks by author");
-    console.log(
-      "Current author ID ..........................................",
-      req.author._id
-    );
+    // console.log("Received request for audiobooks by author");
+    // console.log(
+    //   "Current author ID ..........................................",
+    //   req.author._id
+    // );
 
     // Ensure the author is authenticated
     if (!req.author) {
@@ -546,7 +599,7 @@ const getAudiobooksByAuthor = asyncHandler(async (req, res, next) => {
     for (const audiobook of audiobooks) {
       // **Added Check: Handle missing or invalid authorId**
       if (!audiobook.authorId) {
-        console.error("Audiobook missing authorId:", audiobook); // Log the problematic audiobook
+        // console.error("Audiobook missing authorId:", audiobook); // Log the problematic audiobook
         return res.status(500).json({
           // Or 400 Bad Request, depending on the situation
           error:
@@ -573,26 +626,126 @@ const getAudiobooksByAuthor = asyncHandler(async (req, res, next) => {
   }
 });
 
+// const getAuthorBooks = async (req, res) => {
+//   try {
+//     const authorId = req.params.authorId; // Get the author ID from the URL parameter
+
+//     // Find all audiobooks by the author
+//     const books = await Audiobook.find({ authorId: authorId });
+
+//     console.log("Raw audiobooks data:", books);
+
+//     if (!books.length) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "No audiobooks found for this author",
+//       });
+//     }
+
+//     // Format the books to include base64 image and audio data
+//     const formattedBooks = await Promise.all(
+//       books.map(async (book) => {
+//         console.log("Audiobook before formatting:", book);
+//         let base64Image = null;
+//         let base64Audio = null;
+
+//         try {
+//           const bucket = getGridFSBucket();
+
+//           // Fetch cover image and convert to base64
+//           if (book.coverImage) {
+//             const coverImageFile = await bucket
+//               .find({ filename: book.coverImage })
+//               .toArray();
+
+//             if (coverImageFile.length > 0) {
+//               const downloadStream = bucket.openDownloadStreamByName(
+//                 book.coverImage
+//               );
+//               const chunks = [];
+//               for await (const chunk of downloadStream) {
+//                 chunks.push(chunk);
+//               }
+//               const buffer = Buffer.concat(chunks);
+//               base64Image = buffer.toString("base64");
+//             }
+//           }
+
+//           // Fetch audio file and convert to base64
+//           if (book.audioFile) {
+//             const audioFile = await bucket
+//               .find({ filename: book.audioFile })
+//               .toArray();
+
+//             if (audioFile.length > 0) {
+//               const downloadStream = bucket.openDownloadStreamByName(
+//                 book.audioFile
+//               );
+//               const chunks = [];
+//               for await (const chunk of downloadStream) {
+//                 chunks.push(chunk);
+//               }
+//               const buffer = Buffer.concat(chunks);
+//               base64Audio = buffer.toString("base64");
+//             }
+//           }
+//         } catch (error) {
+//           console.error(
+//             "Error fetching cover image or audio file from GridFS:",
+//             error
+//           );
+//           // Handle error appropriately
+//         }
+
+//         return {
+//           id: book._id,
+//           author: book.authorId,
+//           coverImageData: base64Image,
+//           audioBase64Data: base64Audio,
+//           title: book.title,
+//           authorName: book.authorName || "Unknown", // Added authorName to response
+//           rating: book.average_rating,
+//         };
+//       })
+//     );
+
+//     res.status(200).json({
+//       success: true,
+//       data: formattedBooks,
+//     });
+//   } catch (error) {
+//     console.error("Error in getAuthorBooks:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Internal server error",
+//     });
+//   }
+// };
 const getAuthorBooks = async (req, res) => {
   try {
-    const authorId = req.params.id; // Get the author ID from the URL parameter
+    const authorId = req.params.authorId.toString(); // Get the author ID from the URL parameter
+    // console.log("authorId", authorId);
 
     // Find all audiobooks by the author
-    const books = await Audiobook.find({ authorId: authorId });
+    const books = await Audiobook.find({
+      authorId: new mongoose.Types.ObjectId(authorId),
+    });
 
-    console.log("Raw audiobooks data:", books);
+    // console.log("books", books);
+
+    // console.log("Raw audiobooks data:", books);
 
     if (!books.length) {
-      return res.status(404).json({
-        success: false,
-        message: "No audiobooks found for this author",
+      return res.status(200).json({
+        success: true,
+        data: [], // Return an empty array instead of a 404
       });
     }
 
     // Format the books to include base64 image and audio data
     const formattedBooks = await Promise.all(
       books.map(async (book) => {
-        console.log("Audiobook before formatting:", book);
+        // console.log("Audiobook before formatting:", book);
         let base64Image = null;
         let base64Audio = null;
 
@@ -647,10 +800,14 @@ const getAuthorBooks = async (req, res) => {
         return {
           id: book._id,
           author: book.authorId,
-          coverImageData: base64Image,
-          audioBase64Data: base64Audio,
+          coverImageUrl: base64Image
+            ? `data:image/jpeg;base64,${base64Image}`
+            : null,
+          audioBase64Data: base64Audio
+            ? `data:audio/mp3;base64,${base64Audio}`
+            : null,
           title: book.title,
-          authorName: book.authorName || "Unknown", // Added authorName to response
+          authorName: book.authorName || "Unknown",
           rating: book.average_rating,
         };
       })
@@ -668,6 +825,38 @@ const getAuthorBooks = async (req, res) => {
     });
   }
 };
+
+// const getAuthorBooks = async (req, res) => {
+//   try {
+//     const { authorId } = req.params;
+//     console.log("authorId", authorId);
+
+//     if (!mongoose.Types.ObjectId.isValid(authorId)) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Invalid author ID" });
+//     }
+
+//     const objectId = new mongoose.Types.ObjectId(authorId.toString());
+//     console.log("Converted ObjectId:", objectId);
+
+//     // Debug: Print the exact query being executed
+//     console.log("Querying books with authorId:", objectId);
+
+//     const books = await Audiobook.find({ authorId: objectId });
+
+//     console.log("Books found:", books);
+
+//     if (books.length === 0) {
+//       return res.status(200).json({ success: true, data: [] });
+//     }
+
+//     res.status(200).json({ success: true, data: books });
+//   } catch (error) {
+//     console.error("Error fetching books:", error);
+//     res.status(500).json({ success: false, message: "Internal server error" });
+//   }
+// };
 
 const searchAudiobooks = asyncHandler(async (req, res) => {
   try {
@@ -727,14 +916,21 @@ const getAudiobooksByCategory = asyncHandler(async (req, res) => {
     }
 
     let category = decodeURIComponent(req.params.category);
-    console.log("Category search regex:", category);
-    const audiobooks = await Audiobook.find({
-      $or: [
-        { category: { $regex: category, $options: "i" } },
-        { genre: { $regex: category, $options: "i" } },
-      ],
-    });
-    console.log("Found audiobooks:", audiobooks);
+    // console.log("Category search regex:", category);
+
+    // Construct the search query. Handles both categories and subcategories.
+    let searchQuery = {};
+    if (category.toLowerCase() !== "all") {
+      searchQuery = {
+        $or: [
+          { categories: { $regex: category, $options: "i" } },
+          { subcategories: { $regex: category, $options: "i" } },
+        ],
+      };
+    }
+
+    const audiobooks = await Audiobook.find(searchQuery);
+    // console.log("Found audiobooks:", audiobooks);
 
     if (!audiobooks.length) {
       return res.status(404).json({
@@ -745,241 +941,182 @@ const getAudiobooksByCategory = asyncHandler(async (req, res) => {
 
     const formattedBooks = await Promise.all(
       audiobooks.map(async (book) => {
-        let base64Image = null;
-        let base64Audio = null;
-
         try {
-          const bucket = getGridFSBucket();
+          let base64Image = null;
+          let base64Audio = null;
 
-          // Fetch cover image and convert to base64
-          const coverImageFile = await bucket
-            .find({ filename: book.coverImage })
-            .toArray();
-          if (coverImageFile.length > 0) {
-            const downloadStream = bucket.openDownloadStreamByName(
-              book.coverImage
-            );
-            const chunks = [];
-            for await (const chunk of downloadStream) {
-              chunks.push(chunk);
+          try {
+            const bucket = getGridFSBucket();
+
+            // Fetch cover image and convert to base64
+            const coverImageFile = await bucket
+              .find({ filename: book.coverImage })
+              .toArray();
+            if (coverImageFile.length > 0) {
+              const downloadStream = bucket.openDownloadStreamByName(
+                book.coverImage
+              );
+              const chunks = [];
+              for await (const chunk of downloadStream) {
+                chunks.push(chunk);
+              }
+              base64Image = Buffer.concat(chunks).toString("base64");
             }
-            base64Image = Buffer.concat(chunks).toString("base64");
+
+            // Fetch audio file and convert to base64
+            const audioFile = await bucket
+              .find({ filename: book.audioFile })
+              .toArray();
+            if (audioFile.length > 0) {
+              const downloadStream = bucket.openDownloadStreamByName(
+                book.audioFile
+              );
+              const chunks = [];
+              for await (const chunk of downloadStream) {
+                chunks.push(chunk);
+              }
+              base64Audio = Buffer.concat(chunks).toString("base64");
+            }
+          } catch (gridfsError) {
+            console.error(
+              "Error fetching files from GridFS for book ID",
+              book._id,
+              ":",
+              gridfsError
+            );
+            // Return null or a default object for this book, so the entire request doesn't fail
+            return null; // Or a default object
           }
 
-          // Fetch audio file and convert to base64
-          const audioFile = await bucket
-            .find({ filename: book.audioFile })
-            .toArray();
-          if (audioFile.length > 0) {
-            const downloadStream = bucket.openDownloadStreamByName(
-              book.audioFile
-            );
-            const chunks = [];
-            for await (const chunk of downloadStream) {
-              chunks.push(chunk);
-            }
-            base64Audio = Buffer.concat(chunks).toString("base64");
-          }
-        } catch (error) {
-          console.error("Error fetching files from GridFS:", error);
+          return {
+            id: book._id,
+            author: book.authorId,
+            coverImageData: base64Image,
+            audioBase64Data: base64Audio,
+            title: book.title,
+            authorName: book.authorName || "Unknown",
+            rating: book.average_rating,
+          };
+        } catch (overallError) {
+          console.error(
+            "Overall Error processing book ID",
+            book._id,
+            ":",
+            overallError
+          );
+          return null; // Or a default object
         }
-
-        return {
-          id: book._id,
-          author: book.authorId,
-          coverImageData: base64Image,
-          audioBase64Data: base64Audio,
-          title: book.title,
-          authorName: book.authorName || "Unknown",
-          rating: book.average_rating,
-        };
       })
+    );
+
+    // Filter out any nulls that might have been returned from the map
+    const filteredFormattedBooks = formattedBooks.filter(
+      (book) => book !== null
     );
 
     res.status(200).json({
       success: true,
-      data: formattedBooks,
+      data: filteredFormattedBooks,
     });
   } catch (error) {
+    console.error("Full Error:", error); // Log the full error to the console
     res.status(500).json({
       success: false,
       message: "Internal server error",
+      error: error.message, // Return the error message in the response.
     });
   }
 });
 
-const addRating = async (req, res, next) => {
-  const { rating, review } = req.body;
-  const { id: audiobookId } = req.params;
-
-  console.log("Request Body:", req.body);
-  console.log("Request User:", req.user);
-  console.log("Request Author:", req.author);
-
-  let userId, userType;
-  if (req.user) {
-    userId = req.user._id;
-    userType = "user";
-  } else if (req.author) {
-    userId = req.author._id;
-    userType = "author";
-  } else {
-    return res
-      .status(401)
-      .json({ message: "Not authorized, user or author required" });
-  }
-
-  // Input Validation
-  if (typeof rating !== "number" || rating < 1 || rating > 5) {
-    return res
-      .status(400)
-      .json({ message: "Rating must be a number between 1 and 5" });
-  }
-
-  if (review && typeof review !== "string") {
-    return res.status(400).json({ message: "Review must be a string" });
-  }
-  if (review && review.length > 500) {
-    return res
-      .status(400)
-      .json({ message: "Review must be less than 500 characters" });
-  }
-
+const addRating = async (req, res) => {
   try {
-    console.log(`Fetching audiobook with ID: ${audiobookId}`);
+    const { audiobookId, rating, review } = req.body;
+
+    // Determine user or author ID from the token
+    let userId;
+    if (req.user) {
+      userId = req.user._id.toString();
+    } else if (req.author) {
+      userId = req.author._id.toString();
+    } else {
+      return res.status(401).json({ message: "Unauthorized user" });
+    }
+
+    // Validate required fields
+    if (!rating) {
+      return res.status(400).json({ message: "Rating is required." });
+    }
+
+    // Find the audiobook
     const audiobook = await Audiobook.findById(audiobookId);
     if (!audiobook) {
-      return res.status(404).json({ message: "Audiobook not found" });
+      return res.status(404).json({ message: "Audiobook not found." });
     }
 
-    console.log(`Checking if ${userType} has already rated this audiobook`);
-
-    // Correct Duplicate Rating Check: Use Mongoose Object comparison
-    const existingRating = audiobook.ratings.find((r) => {
-      return r.userId && r.userId.equals(userId); // Ensure userId exists and then compare
-    });
-
-    if (existingRating) {
-      return res
-        .status(400)
-        .json({ message: "You have already rated this audiobook" });
-    }
-
-    audiobook.ratings.push({ userId, rating, review, userType });
-
-    // Explicitly show calculateAverageRating implementation (or move it here)
-    await audiobook.calculateAverageRating();
-    await audiobook.save();
-
-    return res.status(200).json({ message: "Rating added successfully" });
-  } catch (error) {
-    console.error("Error adding rating:", error); // Log the specific error
-    return res
-      .status(500)
-      .json({ message: "Internal server error", error: error.message }); // Return the error message for debugging
-  }
-};
-
-const removeRating = async (req, res, next) => {
-  const { audiobookId } = req.body;
-  const userId = req.user ? req.user._id : req.author ? req.author._id : null;
-
-  if (!userId) {
-    return res
-      .status(401)
-      .json({ message: "Not authorized, user or author required" });
-  }
-
-  try {
-    const audiobook = await Audiobook.findById(audiobookId);
-    if (!audiobook) {
-      return res.status(404).json({ message: "Audiobook not found" });
-    }
-
-    // Find the rating to remove
-    const ratingIndex = audiobook.ratings.findIndex(
-      (rating) =>
-        rating.userId && rating.userId.toString() === userId.toString() //  <--- ADDED CHECK
+    // Check if the user has already rated this audiobook
+    const existingRatingIndex = audiobook.ratings.findIndex(
+      (r) => r.userId === userId
     );
-    if (ratingIndex === -1) {
-      return res
-        .status(400)
-        .json({ message: "Rating not found for this audiobook" });
+
+    if (existingRatingIndex !== -1) {
+      // Update the existing rating
+      audiobook.ratings[existingRatingIndex].rating = rating;
+      audiobook.ratings[existingRatingIndex].review = review || "";
+    } else {
+      // Add a new rating
+      audiobook.ratings.push({ userId, rating, review: review || "" });
     }
-
-    // Get the rating details (e.g., rating value) to update total ratings and total count
-    const ratingToRemove = audiobook.ratings[ratingIndex];
-    const removedRating = ratingToRemove.rating;
-
-    // Remove the rating from the array
-    audiobook.ratings.splice(ratingIndex, 1);
-
-    // Update total_ratings and total_count
-    audiobook.total_ratings -= removedRating;
-    audiobook.total_count -= 1;
-
-    // Recalculate average_rating (if total_count > 0, else set to 0)
-    audiobook.average_rating =
-      audiobook.total_count > 0
-        ? audiobook.total_ratings / audiobook.total_count
-        : 0;
-
-    // Save the updated audiobook
-    await audiobook.save();
-
-    return res.status(200).json({ message: "Rating removed successfully" });
-  } catch (error) {
-    console.error("Error removing rating:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-const editRating = async (req, res) => {
-  const { id } = req.params; // Capture the audiobookId from the route parameter
-  const { rating, review } = req.body; // Capture the rating and review from the body
-
-  console.log("Audiobook ID:", id); // Log the captured audiobookId
-  console.log("Rating:", rating); // Log the rating
-  console.log("Review:", review); // Log the review
-
-  try {
-    const audiobook = await Audiobook.findById(id); // Find the audiobook by ID
-    if (!audiobook) {
-      return res.status(404).json({ error: "Audiobook not found" });
-    }
-
-    // Add the new rating and review to the ratings array
-    audiobook.ratings.push({ rating, review });
 
     // Recalculate the average rating
-    const totalRatings = audiobook.ratings.length;
-    const sumRatings = audiobook.ratings.reduce(
-      (acc, ratingObj) => acc + ratingObj.rating,
-      0
-    );
-    audiobook.average_rating = sumRatings / totalRatings;
+    await audiobook.calculateAverageRating();
 
-    // Update the total count of ratings
-    audiobook.total_ratings = totalRatings;
-
-    // Save the updated audiobook object
-    await audiobook.save();
-
-    res.status(200).json({
-      message: "Review updated successfully",
-      audiobook: {
-        _id: audiobook._id,
-        title: audiobook.title,
-        ratings: audiobook.ratings,
-        average_rating: audiobook.average_rating,
-        total_ratings: audiobook.total_ratings,
-      },
-    });
+    res
+      .status(200)
+      .json({ message: "Rating added/updated successfully", audiobook });
   } catch (error) {
-    console.error(error);
     res
       .status(500)
-      .json({ error: "An error occurred while updating the review" });
+      .json({ message: "Internal server error", error: error.message });
+  }
+};
+
+const getUserRating = async (req, res) => {
+  try {
+    const { audiobookId } = req.body; // Get from parameters
+    const userId = req.author._id || req.user._id; // Get from the token, set by middleware
+    // console.log("audiobookId:", audiobookId);
+    // console.log("userId:", userId);
+
+    if (!audiobookId || !userId) {
+      return res
+        .status(400)
+        .json({ message: "Audiobook ID and User ID are required" });
+    }
+
+    const audiobook = await Audiobook.findById(audiobookId);
+    // console.log("audiobook:", audiobook);
+
+    if (!audiobook) {
+      return res.status(404).json({ message: "Audiobook not found" });
+    }
+
+    const userRating = audiobook.ratings.find(
+      (rating) => rating.userId.toString() === userId
+    );
+    // console.log("userRating:", userRating);
+
+    if (userRating) {
+      return res.status(200).json({ rating: userRating });
+    } else {
+      return res
+        .status(404)
+        .json({ message: "Rating not found for this audiobook" });
+    }
+  } catch (error) {
+    console.error("Error in getUserRating:", error);
+    return res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
   }
 };
 
@@ -987,6 +1124,7 @@ export {
   getAudiobooks,
   getAuthorBooks,
   getCategories,
+  getSubcategories,
   uploadAudiobook,
   deleteAudiobook,
   updateAudiobook,
@@ -995,8 +1133,7 @@ export {
   searchAudiobooks,
   getAudiobooksByCategory,
   addRating,
-  removeRating,
-  editRating,
+  getUserRating,
   getAudiobookCoverImage,
   getAudioFile,
 };

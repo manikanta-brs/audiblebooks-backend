@@ -1,24 +1,12 @@
 import Author from "../models/authorModel.js"; // Assuming this is your Author model
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import validator from "validator";
 
 import {
   sendEmailVerificationLink,
   sendPasswordResetLink,
 } from "../utils/utils.js";
-
-// Utility function for JWT verification (can be a separate middleware)
-function verifyToken(req, res, next) {
-  const bearerHeader = req.headers["authorization"];
-  if (typeof bearerHeader !== "undefined") {
-    const bearer = bearerHeader.split(" ");
-    const bearerToken = bearer[1];
-    req.token = bearerToken;
-    next();
-  } else {
-    res.sendStatus(403); // Forbidden
-  }
-}
 
 // create a new author
 const createAuthor = async (req, res, next) => {
@@ -184,71 +172,20 @@ const verifyAuthorEmail = async (req, res, next) => {
   }
 };
 
-// const loginAuthor = async (req, res, next) => {
-//   const { email, password } = req.body;
-//   if (!email || !password) {
-//     const err = new Error("Email & Password are required");
-//     err.statusCode = 400;
-//     return next(err);
-//   }
-//   // check for valid email adress
-//   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-//   if (!emailRegex.test(email)) {
-//     res.status(400);
-//     const err = new Error("Invalid email address");
-//     return next(err);
-//   }
-//   try {
-//     const author = await Author.findOne({ email });
-//     if (!author) {
-//       const err = new Error("Author not found");
-//       err.statusCode = 400;
-//       return next(err);
-//     }
-//     if (!author.verified) {
-//       const err = new Error(
-//         "Your account verification is pending. Please verify your email to continue"
-//       );
-//       err.statusCode = 409;
-//       return next(err);
-//     }
-
-//     // check for password match
-//     const passwordMatched = await bcrypt.compare(password, author.password);
-
-//     if (!passwordMatched) {
-//       const err = new Error("Invalid email or password");
-//       err.statusCode = 400;
-//       return next(err);
-//     }
-
-//     // generate the token
-//     const token = jwt.sign(
-//       {
-//         authorId: author._id, // Include authorId in the payload
-//         email: email, // Use the email variable from the request
-//       },
-//       process.env.JWT_SECRET,
-//       {
-//         expiresIn: 2592000,
-//       }
-//     );
-//     author.token = token;
-//     await author.save();
-
-//     // our token exp time
-//     const expiresIn = 2592000;
-//     res.status(200).json({
-//       token,
-//       avatar: author.avatar, // Include the avatar URL in the response
-//       expiresIn,
-//     });
-//   } catch (error) {
-//     return next(error);
-//   }
-// };
+// No problems here
 const loginAuthor = async (req, res, next) => {
   const { email, password } = req.body;
+  if (!validator.isEmail(email)) {
+    const err = new Error("Invalid email format");
+    err.statusCode = 400;
+    return next(err);
+  }
+
+  if (!email || !password) {
+    const err = new Error("Email and password are required");
+    err.statusCode = 400;
+    return next(err);
+  }
 
   try {
     const author = await Author.findOne({ email });
@@ -306,38 +243,7 @@ const loginAuthor = async (req, res, next) => {
     return next(error);
   }
 };
-// get author list
-// const getAuthors = async (req, res, next) => {
-//   try {
-//     // Check the JWT token
-//     jwt.verify(req.token, process.env.JWT_SECRET, async (err, authData) => {
-//       if (err) {
-//         res.sendStatus(403); // Send a 403 Forbidden status if JWT verification fails
-//       } else {
-//         // If JWT is valid, proceed to fetch the authors
-//         const authors = await Author.find({}).select(
-//           "avatar first_name last_name email"
-//         ); // Select the columns you want
 
-//         // Check if any authors were found
-//         if (!authors || authors.length === 0) {
-//           return res
-//             .status(404)
-//             .json({ message: "No authors found", status: 404 });
-//         }
-
-//         res.status(200).json(authors); // Send the authors data as a JSON response
-//       }
-//     });
-//   } catch (error) {
-//     console.error("Error fetching authors:", error);
-//     res.status(500).json({
-//       message: "Error fetching authors",
-//       error: error.message,
-//       status: 500,
-//     }); // Send an error response
-//   }
-// };
 const getAuthors = async (req, res) => {
   try {
     const authHeader = req.headers["authorization"]; // Correct header name
@@ -349,13 +255,13 @@ const getAuthors = async (req, res) => {
 
     jwt.verify(token, process.env.JWT_SECRET, async (err, authData) => {
       if (err) {
-        console.error("JWT verification error:", err); // Log the error
+        // console.error("JWT verification error:", err); // Log the error
         return res.sendStatus(403); // Forbidden if JWT verification fails
       } else {
         // Token is valid
         const authorId = req.query.authorId; // You still use authorId here.  Why?
-        console.log("authData:", authData); // Log the decoded token data
-        console.log(authorId);
+        // console.log("authData:", authData); // Log the decoded token data
+        // console.log(authorId);
 
         const authors = await Author.find({ isAuthor: true }).select(
           "avatar first_name last_name email"
@@ -405,41 +311,6 @@ const getAuthorProfile = async (req, res, next) => {
 };
 
 // update author profile
-// const updateAuthorProfile = async (req, res, next) => {
-//   const { first_name, last_name, email } = req.body;
-//   try {
-//     const author = await Author.findById(req.author._id);
-//     if (!author) {
-//       const err = new Error("author not found");
-//       err.statusCode = 404;
-//       return next(err);
-//     }
-
-//     if (first_name || last_name) {
-//       author.first_name = first_name || author.first_name;
-//       author.last_name = last_name || author.last_name;
-//     }
-
-//     if (email && email !== author.email) {
-//       const authorExists = await Author.findOne({ email });
-
-//       if (authorExists) {
-//         const err = new Error(
-//           `${email} is already in use, please choose a different one`
-//         );
-//         err.statusCode = 409;
-//         return next(err);
-//       }
-//       author.email = email;
-//     }
-//     await author.save();
-//     res.status(200).json({ message: "updated successfully" });
-//   } catch (error) {
-//     return next(error);
-//   }
-// };
-
-// update author profile
 const updateAuthorProfile = async (req, res, next) => {
   const { first_name, last_name, email } = req.body;
   try {
@@ -456,16 +327,16 @@ const updateAuthorProfile = async (req, res, next) => {
     }
 
     if (email && email !== author.email) {
-      console.log("Inside email update block:");
-      console.log("req.body.email:", req.body.email);
-      console.log("author.email:", author.email);
+      // console.log("Inside email update block:");
+      // console.log("req.body.email:", req.body.email);
+      // console.log("author.email:", author.email);
       // Modified email existence check:  Exclude the current author's ID
       const authorExists = await Author.findOne({
         email: req.body.email,
         _id: { $ne: req.author._id }, // Exclude the current author's ID
       });
 
-      console.log("authorExists:", authorExists);
+      // console.log("authorExists:", authorExists);
 
       if (authorExists) {
         const err = new Error(
@@ -482,6 +353,7 @@ const updateAuthorProfile = async (req, res, next) => {
     return next(error);
   }
 };
+
 // update author password
 const updatePassword = async (req, res, next) => {
   const { password } = req.body;
@@ -524,7 +396,7 @@ const forgotPassword = async (req, res, next) => {
     }
     // generate token
     const token = jwt.sign(
-      { authorId: author._id, email },
+      { authorId: author._id }, // Removed email from token payload
       process.env.JWT_SECRET,
       {
         expiresIn: "2h",
@@ -538,7 +410,8 @@ const forgotPassword = async (req, res, next) => {
     const verificationEmailResponse = await sendPasswordResetLink(
       email,
       token,
-      author.first_name
+      author.first_name,
+      "authors"
     );
     // handle err
     if (verificationEmailResponse.error) {
@@ -550,6 +423,7 @@ const forgotPassword = async (req, res, next) => {
     }
     res.status(200).json({
       message: "Password reset link sent successfully, please check your email",
+      token: token,
     });
   } catch (error) {
     return next(error);
@@ -558,7 +432,7 @@ const forgotPassword = async (req, res, next) => {
 
 // reset password
 const resetPassword = async (req, res, next) => {
-  const { token } = req.params; // token is passed via URL parameter
+  const { token } = req.params;
   const { password } = req.body;
 
   if (!token) {
@@ -573,20 +447,22 @@ const resetPassword = async (req, res, next) => {
   }
 
   try {
-    // Find the author by token and check if the reset token has expired
-    const author = await Author.findOne({
-      reset_password_token: token,
-      reset_password_expires: { $gt: Date.now() }, // Check if token is still valid
-    });
+    // Verify the token and extract userId/authorId
+    let decoded;
 
-    // Log the token, current time, and token expiry for debugging
-    console.log("Reset Token:", token); // Log the reset token
-    console.log("Current Time:", Date.now()); // Log the current time
-    console.log("Token Expiry:", user?.reset_password_expires); // Log the token expiry date
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    if (!author) {
-      console.log("author not found or token expired");
+    let user; // Declare user outside the if blocks
+    if (decoded.authorId) {
+      // It's an author token
+      user = await Author.findOne({
+        _id: decoded.authorId,
+        reset_password_token: token,
+        reset_password_expires: { $gt: Date.now() },
+      });
+    }
 
+    if (!user) {
       const err = new Error(
         "Password reset link is invalid or expired, please try again"
       );
@@ -597,19 +473,17 @@ const resetPassword = async (req, res, next) => {
     // Hash the new password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Update the user's password and clear the reset token and expiry
-    author.password = hashedPassword;
-    author.reset_password_token = undefined;
-    author.reset_password_expires = undefined;
-
-    // Save the updated user object
-    await author.save();
+    // Update the password and clear the reset token
+    user.password = hashedPassword;
+    user.reset_password_token = undefined;
+    user.reset_password_expires = undefined;
+    await user.save();
 
     res.status(200).json({
       message: "Password updated successfully, please login to continue",
     });
   } catch (error) {
-    return next(error); // Pass any errors to the error-handling middleware
+    return next(error);
   }
 };
 

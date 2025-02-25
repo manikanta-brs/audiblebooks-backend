@@ -28,7 +28,7 @@ router.put("/profile", checkUserToken, updateUserProfile);
 router.put("/preferredlanguage", checkUserToken, updatePreferredLanguage);
 router.put("/updatepassword", checkUserToken, updatePassword);
 router.post("/forgotpassword", forgotPassword);
-router.put("/resetpassword/:token", resetPassword);
+router.put("/resetuserpassword/:token", resetPassword);
 router.post("/savestory", checkUserToken, saveSpotifyStory);
 router.delete("/removestory", checkUserToken, removeSpotifyStory);
 router.get("/library", checkUserToken, getSpotifyStories);

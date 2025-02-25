@@ -25,6 +25,6 @@ router.get("/getauthors", getAuthors);
 router.put("/profile", checkAuthorToken, updateAuthorProfile);
 router.put("/updatepassword", checkAuthorToken, updatePassword);
 router.post("/forgotpassword", forgotPassword);
-router.put("/resetpassword/:token", resetPassword);
+router.put("/resetauthorpassword/:token", resetPassword);
 
 export default router;

@@ -45,48 +45,75 @@ const sendEmailVerificationLink = async (email, token, name, role) => {
   }
 };
 
-// Send password reset link
-
-// const sendEmailVerificationLink = async (email, token, name) => {
+// const sendPasswordResetLink = async (email, token, name, role) => {
 //   try {
-//     const { token } = useParams(); // Extract token from URL
-
 //     const renderedContent = await ejs.renderFile(
-//       path.join(currentDirectory, "/../templates/confirmEmail.ejs"),
-//       { token, name }
+//       path.join(currentDirectory, "/../templates/reset_password.ejs"),
+//       { token, name, role } // Added role to template data
 //     );
+
+//     console.log("Generated Token:", token);
+//     console.log("Role:", role); // Log the role
+//     console.log("Sending password reset email to:", email);
+//     console.log("SMTP Config:", mail.transporter.options);
+
 //     const mailOptions = {
 //       from: "manikantadon675@gmail.com",
 //       to: email,
-//       subject: "Email Verification",
+//       subject: "AudibleBooks: Password Reset",
 //       html: renderedContent,
 //     };
-//     const verificationInfo = await mail.sendMail(mailOptions);
-//     return verificationInfo;
+
+//     const resetInfo = await mail.sendMail(mailOptions);
+
+//     console.log("Password reset email sent successfully.");
+
+//     return resetInfo;
 //   } catch (error) {
-//     console.error("Error sending email verification:", error);
-//     return error;
+//     console.error("Error sending password reset email:", error);
+//     return { error: error.message };
 //   }
 // };
-const sendPasswordResetLink = async (email, token, name) => {
+// sendPasswordResetLink function
+const sendPasswordResetLink = async (email, token, name, entityType) => {
+  let resetLink = `http://localhost:4000/resetpassword/${token}`; // Default
+  console.log("Entity type is", entityType);
+  if (entityType === "users") {
+    resetLink = `http://localhost:4000/resetuserpassword/${token}`;
+  } else if (entityType === "authors") {
+    resetLink = `http://localhost:4000/resetauthorpassword/${token}`;
+  }
+  console.log("The reset link is ", resetLink);
+
   try {
-    const renderedContent = await ejs.renderFile(
-      path.join(currentDirectory, "/../templates/reset_password.ejs"),
-      { token, name }
+    const templatePath = path.join(
+      currentDirectory,
+      "/../templates/reset_password.ejs"
     );
+
+    const renderedHTML = await ejs.renderFile(templatePath, {
+      name: name,
+      resetLink: resetLink,
+      token: token,
+      entityType: entityType, // Pass entityType for template customization
+    });
+
     const mailOptions = {
-      from: "manikantadon675@gmail.com",
+      from: "manikantadon675@gmail.com", // Consider using process.env.EMAIL_FROM
       to: email,
-      subject: "StoryTime : Password Reset",
-      html: renderedContent,
+      subject: "Password Reset Request",
+      html: renderedHTML,
     };
-    const resetInfo = await mail.sendMail(mailOptions);
+
+    const resetInfo = await mail.sendMail(mailOptions); // Use your existing mail transport
+
     return resetInfo;
   } catch (error) {
-    console.error("Error sending password reset:", error);
-    return error;
+    console.error("EJS rendering error:", error); // More specific logging
+    return { error: error.message };
   }
 };
+
 const sendPasswordResetVerificationCode = async (name, email, otp) => {
   try {
     const renderedContent = await ejs.renderFile(

@@ -15,9 +15,9 @@ const initializeGridFSBucket = () => {
       bucketName: "uploads",
       chunkSizeBytes: 1048576, // Set chunk size to 1MB
     });
-    console.log("✅ GridFSBucket initialized");
+    // console.log("✅ GridFSBucket initialized");
   } else {
-    console.log("MongoDB is not connected. Retrying in 1 second...");
+    // console.log("MongoDB is not connected. Retrying in 1 second...");
     setTimeout(initializeGridFSBucket, 1000); // Retry after 1 second
   }
 };

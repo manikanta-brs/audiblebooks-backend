@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 const optimizeAudio = async (req, res, next) => {
   try {
     if (!req.files || !req.files["audiobook"] || !req.files["audiobook"][0]) {
-      console.log("No audio to process, moving to next middleware.");
+      //console.log("No audio to process, moving to next middleware.");
       return next(); // No audio to process, move to next middleware/controller
     }
 
@@ -30,13 +30,13 @@ const optimizeAudio = async (req, res, next) => {
 
     // 1. Save the uploaded audio file to a temporary location
     await fs.writeFile(inputFilePath, audiobookFile.buffer);
-    console.log("file written");
+    //console.log("file written");
 
     // 2. FFmpeg command for optimization (adjust as needed)
     const ffmpegCommand = `ffmpeg -i "${inputFilePath}" -vn -acodec libmp3lame -ab 128k -ar 44100 -ac 1 "${outputFilePath}"`;
 
     // 3. Execute FFmpeg command
-    console.log(`Executing FFmpeg command: ${ffmpegCommand}`);
+    //console.log(`Executing FFmpeg command: ${ffmpegCommand}`);
     exec(ffmpegCommand, (error, stdout, stderr) => {
       if (error) {
         console.error(`FFmpeg error: ${error}`);
@@ -51,7 +51,7 @@ const optimizeAudio = async (req, res, next) => {
         return res.status(500).send("Error optimizing audio.");
       }
 
-      console.log(`FFmpeg stdout: ${stdout}`);
+      //console.log(`FFmpeg stdout: ${stdout}`);
 
       // 4. Read the optimized audio file back into a buffer
       fs.readFile(outputFilePath, (err, optimizedAudioBuffer) => {
@@ -89,7 +89,7 @@ const optimizeAudio = async (req, res, next) => {
           }
         });
 
-        console.log("Moving to next middleware");
+        //console.log("Moving to next middleware");
         next(); // Move to next middleware
       });
     });
