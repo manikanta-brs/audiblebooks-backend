@@ -76,12 +76,12 @@ const sendEmailVerificationLink = async (email, token, name, role) => {
 // };
 // sendPasswordResetLink function
 const sendPasswordResetLink = async (email, token, name, entityType) => {
-  let resetLink = `http://localhost:4000/resetpassword/${token}`; // Default
+  let resetLink = `https://audiblebooks-frontend.onrender.com/resetpassword/${token}`; // Default
   console.log("Entity type is", entityType);
   if (entityType === "users") {
-    resetLink = `http://localhost:4000/resetuserpassword/${token}`;
+    resetLink = `https://audiblebooks-frontend.onrender.com/resetuserpassword/${token}`;
   } else if (entityType === "authors") {
-    resetLink = `http://localhost:4000/resetauthorpassword/${token}`;
+    resetLink = `https://audiblebooks-frontend.onrender.com/resetauthorpassword/${token}`;
   }
   console.log("The reset link is ", resetLink);
 
