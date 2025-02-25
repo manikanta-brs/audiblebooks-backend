@@ -68,7 +68,7 @@ const audiobookSchema = mongoose.Schema(
     ratings: [
       {
         userId: { type: String, required: true }, // Can be User or Author ID (stored as String)
-        rating: { type: Number, required: true, min: 1, max: 5 },
+        rating: { type: Number, required: true, min: 0, max: 5 },
         review: { type: String, default: "" }, // Optional review
       },
     ],
